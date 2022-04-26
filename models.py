@@ -95,7 +95,7 @@ class WideResNet(nn.Module):
     def __init__(self, num_classes, depth=28, widen_factor=2, dropout=0.0, dense_dropout=0.0):
         super(WideResNet, self).__init__()
         channels = [16, 16 * widen_factor, 32 * widen_factor, 64 * widen_factor]
-        assert((depth - 4) % 6 == 0)
+        assert ((depth - 4) % 6 == 0)
         n = (depth - 4) / 6
         block = BasicBlock
         # 1st conv before any network block
@@ -153,5 +153,34 @@ def build_wideresnet(args):
                        dense_dropout=args.dense_dropout)
     if args.local_rank in [-1, 0]:
         logger.info(f"Model: WideResNet {depth}x{widen_factor}")
-        logger.info(f"Total params: {sum(p.numel() for p in model.parameters())/1e6:.2f}M")
+        logger.info(f"Total params: {sum(p.numel() for p in model.parameters()) / 1e6:.2f}M")
+    return model
+
+
+def get_model(model_name, num_classes, dropout=0, dataset=None, pretrained=False):
+    if model_name == "WideResNet":
+        if dataset == "cifar10":
+            depth, widen_factor = 28, 2
+        elif dataset == 'cifar100':
+            depth, widen_factor = 28, 8
+        model = WideResNet(num_classes=num_classes,
+                           depth=depth,
+                           widen_factor=widen_factor,
+                           dropout=0,
+                           dense_dropout=dropout)
+    elif model_name.startswith("efficientnet_"):
+        import timm
+        model = timm.create_model(model_name, pretrained=pretrained)
+    elif model_name.startswith("efficientnet"):
+        from efficientnet_pytorch import EfficientNet
+        if pretrained:
+            model = EfficientNet.from_pretrained(model_name, num_classes=num_classes)
+        else:
+            try:
+                model = EfficientNet.from_name(model_name, override_params={'num_classes': num_classes})
+            except:
+                model = EfficientNet.from_name(model_name, num_classes=num_classes)
+    else:
+        import timm
+        model = timm.create_model(model_name, pretrained=pretrained)
     return model

@@ -19,7 +19,7 @@ import wandb
 from tqdm import tqdm
 
 from data import DATASET_GETTERS
-from models import WideResNet, ModelEMA
+from models import get_model, ModelEMA
 from utils import (AverageMeter, accuracy, create_loss_fn,
                    save_checkpoint, reduce_tensor, model_load_state_dict)
 
@@ -27,7 +27,11 @@ logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--name', type=str, required=True, help='experiment name')
+parser.add_argument('--teacher-model-name', type=str, default="WideResNet", help='teacher model name')
+parser.add_argument('--student-model-name', type=str, default="WideResNet", help='student model name')
+parser.add_argument('--use_pretrained_model', action='store_true')
 parser.add_argument('--data-path', default='./data', type=str, help='data path')
+parser.add_argument('--test-data-path', default=None, type=str, help='test data path')
 parser.add_argument('--save-path', default='./checkpoint', type=str, help='save path')
 parser.add_argument('--dataset', default='cifar10', type=str,
                     choices=['cifar10', 'cifar100'], help='dataset name')
@@ -97,7 +101,7 @@ def get_cosine_schedule_with_warmup(optimizer,
             return float(current_step) / float(max(1, num_warmup_steps + num_wait_steps))
 
         progress = float(current_step - num_warmup_steps - num_wait_steps) / \
-            float(max(1, num_training_steps - num_warmup_steps - num_wait_steps))
+                   float(max(1, num_training_steps - num_warmup_steps - num_wait_steps))
         return max(0.0, 0.5 * (1.0 + math.cos(math.pi * float(num_cycles) * 2.0 * progress)))
 
     return LambdaLR(optimizer, lr_lambda, last_epoch)
@@ -253,7 +257,7 @@ def train_loop(args, labeled_loader, unlabeled_loader, test_loader, finetune_dat
 
         batch_time.update(time.time() - end)
         pbar.set_description(
-            f"Train Iter: {step+1:3}/{args.total_steps:3}. "
+            f"Train Iter: {step + 1:3}/{args.total_steps:3}. "
             f"LR: {get_lr(s_optimizer):.4f}. Data: {data_time.avg:.2f}s. "
             f"Batch: {batch_time.avg:.2f}s. S_Loss: {s_losses.avg:.4f}. "
             f"T_Loss: {t_losses.avg:.4f}. Mask: {mean_mask.avg:.4f}. ")
@@ -317,17 +321,18 @@ def train_loop(args, labeled_loader, unlabeled_loader, test_loader, finetune_dat
         wandb.log({"result/test_acc@1": args.best_top1})
 
     # finetune
-    del t_scaler, t_scheduler, t_optimizer, teacher_model, labeled_loader, unlabeled_loader
-    del s_scaler, s_scheduler, s_optimizer
-    ckpt_name = f'{args.save_path}/{args.name}_best.pth.tar'
-    loc = f'cuda:{args.gpu}'
-    checkpoint = torch.load(ckpt_name, map_location=loc)
-    logger.info(f"=> loading checkpoint '{ckpt_name}'")
-    if checkpoint['avg_state_dict'] is not None:
-        model_load_state_dict(student_model, checkpoint['avg_state_dict'])
-    else:
-        model_load_state_dict(student_model, checkpoint['student_state_dict'])
-    finetune(args, finetune_dataset, test_loader, student_model, criterion)
+    if finetune_dataset is not None:
+        del t_scaler, t_scheduler, t_optimizer, teacher_model, labeled_loader, unlabeled_loader
+        del s_scaler, s_scheduler, s_optimizer
+        ckpt_name = f'{args.save_path}/{args.name}_best.pth.tar'
+        loc = f'cuda:{args.gpu}'
+        checkpoint = torch.load(ckpt_name, map_location=loc)
+        logger.info(f"=> loading checkpoint '{ckpt_name}'")
+        if checkpoint['avg_state_dict'] is not None:
+            model_load_state_dict(student_model, checkpoint['avg_state_dict'])
+        else:
+            model_load_state_dict(student_model, checkpoint['student_state_dict'])
+        finetune(args, finetune_dataset, test_loader, student_model, criterion)
     return
 
 
@@ -357,7 +362,7 @@ def evaluate(args, test_loader, model, criterion):
             batch_time.update(time.time() - end)
             end = time.time()
             test_iter.set_description(
-                f"Test Iter: {step+1:3}/{len(test_loader):3}. Data: {data_time.avg:.2f}s. "
+                f"Test Iter: {step + 1:3}/{len(test_loader):3}. Data: {data_time.avg:.2f}s. "
                 f"Batch: {batch_time.avg:.2f}s. Loss: {losses.avg:.4f}. "
                 f"top1: {top1.avg:.2f}. top5: {top5.avg:.2f}. ")
 
@@ -381,7 +386,7 @@ def finetune(args, finetune_dataset, test_loader, model, criterion):
     scaler = amp.GradScaler(enabled=args.amp)
 
     logger.info("***** Running Finetuning *****")
-    logger.info(f"   Finetuning steps = {len(labeled_loader)*args.finetune_epochs}")
+    logger.info(f"   Finetuning steps = {len(labeled_loader) * args.finetune_epochs}")
 
     for epoch in range(args.finetune_epochs):
         if args.world_size > 1:
@@ -412,7 +417,7 @@ def finetune(args, finetune_dataset, test_loader, model, criterion):
             losses.update(loss.item(), batch_size)
             batch_time.update(time.time() - end)
             labeled_iter.set_description(
-                f"Finetune Epoch: {epoch+1:2}/{args.finetune_epochs:2}. Data: {data_time.avg:.2f}s. "
+                f"Finetune Epoch: {epoch + 1:2}/{args.finetune_epochs:2}. Data: {data_time.avg:.2f}s. "
                 f"Batch: {batch_time.avg:.2f}s. Loss: {losses.avg:.4f}. ")
         labeled_iter.close()
         if args.local_rank in [-1, 0]:
@@ -511,30 +516,19 @@ def main():
                              batch_size=args.batch_size,
                              num_workers=args.workers)
 
-    if args.dataset == "cifar10":
-        depth, widen_factor = 28, 2
-    elif args.dataset == 'cifar100':
-        depth, widen_factor = 28, 8
-
     if args.local_rank not in [-1, 0]:
         torch.distributed.barrier()
 
-    teacher_model = WideResNet(num_classes=args.num_classes,
-                               depth=depth,
-                               widen_factor=widen_factor,
-                               dropout=0,
-                               dense_dropout=args.teacher_dropout)
-    student_model = WideResNet(num_classes=args.num_classes,
-                               depth=depth,
-                               widen_factor=widen_factor,
-                               dropout=0,
-                               dense_dropout=args.student_dropout)
+    teacher_model = get_model(args.teacher_model_name, args.num_classes, dropout=args.teacher_dropout,
+                              dataset=args.dataset, pretrained=args.use_pretrained_model)
+    student_model = get_model(args.student_model_name, args.num_classes, dropout=args.student_dropout,
+                              dataset=args.dataset, pretrained=args.use_pretrained_model)
 
     if args.local_rank == 0:
         torch.distributed.barrier()
 
-    logger.info(f"Model: WideResNet {depth}x{widen_factor}")
-    logger.info(f"Params: {sum(p.numel() for p in teacher_model.parameters())/1e6:.2f}M")
+    logger.info(f"Model: {args.model_name}")
+    logger.info(f"Params: {sum(p.numel() for p in teacher_model.parameters()) / 1e6:.2f}M")
 
     teacher_model.to(args.device)
     student_model.to(args.device)
