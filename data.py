@@ -154,7 +154,8 @@ def get_fashion_attribute(args):
         transforms.ToTensor(),
         transforms.Normalize(mean=cifar100_mean, std=cifar100_std)])
 
-    dataset_class = FashionAttributeMultiLabelDataset if args.is_multi_label_dataset else FashionAttributeDataset
+    # dataset_class = FashionAttributeMultiLabelDataset if args.is_multi_label_dataset else FashionAttributeDataset
+    dataset_class = FashionAttributeDataset
 
     train_labeled_dataset = dataset_class(args.train_label_json, args.label_type, args.data_path, transform_labeled)
 
@@ -194,7 +195,7 @@ def x_u_split(args, labels):
         return labeled_idx_ex, unlabeled_idx, labeled_idx
     else:
         np.random.shuffle(labeled_idx)
-        return labeled_idx, unlabeled_idx, lebeled_idx
+        return labeled_idx, unlabeled_idx, labeled_idx
 
 
 def x_u_split_test(args, labels):

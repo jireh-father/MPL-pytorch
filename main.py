@@ -31,7 +31,13 @@ parser.add_argument('--teacher-model-name', type=str, default="WideResNet", help
 parser.add_argument('--student-model-name', type=str, default="WideResNet", help='student model name')
 parser.add_argument('--use_pretrained_model', action='store_true')
 parser.add_argument('--data-path', default='./data', type=str, help='data path')
+parser.add_argument('--finetune-data-path', default=None, type=str, help='test data path')
+parser.add_argument('--unlabeled-data-path', default=None, type=str, help='test data path')
 parser.add_argument('--test-data-path', default=None, type=str, help='test data path')
+parser.add_argument('--train-label-json', default=None, type=str, help='test data path')
+parser.add_argument('--finetune-label-json', default=None, type=str, help='test data path')
+parser.add_argument('--test-label-json', default=None, type=str, help='test data path')
+parser.add_argument('--label-type', default=None, type=str, help='test data path')
 parser.add_argument('--save-path', default='./checkpoint', type=str, help='save path')
 parser.add_argument('--dataset', default='cifar10', type=str,
                     choices=['cifar10', 'cifar100'], help='dataset name')
