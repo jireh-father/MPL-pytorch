@@ -415,7 +415,8 @@ class FashionAttributeDataset(ImageFolder):
                         sample = self.transform(sample)
                 return sample, target
             except Exception as e:
-                # traceback.print_exc()
+                import traceback
+                traceback.print_exc()
                 print(str(e), path)
                 index = random.randint(0, len(self) - 1)
 
@@ -462,7 +463,8 @@ class FashionAttributeMultiLabelDataset(ImageFolder):
                 #     sample = self.transform(image=sample)['image']
                 return sample, np.array(target, dtype=np.float32)
             except Exception as e:
-                # traceback.print_exc()
+                import traceback
+                traceback.print_exc()
                 print(str(e), path)
                 index = random.randint(0, len(self) - 1)
 
@@ -485,7 +487,8 @@ class FashionAttributeUnlabeledDataset(ImageFolder):
 
                 return sample, target
             except Exception as e:
-                # traceback.print_exc()
+                import traceback
+                traceback.print_exc()
                 print(str(e), path)
                 index = random.randint(0, len(self) - 1)
 
@@ -511,7 +514,8 @@ class FashionAttributeUnlabeledDatasetOneFolder(data.Dataset):
                         sample = self.transform(sample)
                 return sample, 1
             except Exception as e:
-                # traceback.print_exc()
+                import traceback
+                traceback.print_exc()
                 print(str(e), path)
                 index = random.randint(0, len(self) - 1)
 
