@@ -8,7 +8,6 @@ from torchvision import transforms
 from torchvision.transforms import InterpolationMode
 import torch.utils.data as data
 from augmentation import RandAugmentCIFAR
-from augment import TrivialAugmentWide
 from torchvision.datasets.folder import ImageFolder
 
 import json
