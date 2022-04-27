@@ -432,8 +432,8 @@ class FashionAttributeUnlabeledDatasetOneFolder(data.Dataset):
                 print(str(e), path)
                 index = random.randint(0, len(self) - 1)
 
-    def __len__(self) -> int:
-        raise len(self.samples)
+    def __len__(self):
+        return len(self.samples)
 
 
 DATASET_GETTERS = {
