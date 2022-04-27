@@ -233,10 +233,11 @@ def get_fashion_attribute(args):
 
     if args.use_unlabeled_one_folder:
         train_unlabeled_dataset = FashionAttributeUnlabeledDatasetOneFolder(args.unlabeled_data_path,
-                                                                            TransformMPLFashion(args))
+                                                                            TransformMPLFashion(args),
+                                                                            use_albumentations=True)
     else:
         train_unlabeled_dataset = FashionAttributeUnlabeledDataset(args.unlabeled_data_path,
-                                                                   TransformMPLFashion(args))
+                                                                   TransformMPLFashion(args), use_albumentations=True)
 
     test_dataset = dataset_class(args.test_label_json, args.label_type, args.test_data_path, transform_val,
                                  use_albumentations=True)
@@ -467,8 +468,9 @@ class FashionAttributeMultiLabelDataset(ImageFolder):
 
 
 class FashionAttributeUnlabeledDataset(ImageFolder):
-    def __init__(self, root, transform=None):
+    def __init__(self, root, transform=None, use_albumentations=False):
         super(FashionAttributeUnlabeledDataset, self).__init__(root, transform=transform)
+        self.use_albumentations = use_albumentations
 
     def __getitem__(self, index):
         while True:
@@ -476,10 +478,11 @@ class FashionAttributeUnlabeledDataset(ImageFolder):
                 path, target = self.samples[index]
                 sample = self.loader(path)
                 if self.transform is not None:
-                    sample = self.transform(sample)
-                # albumentations transform style
-                # if self.transform is not None:
-                #     sample = self.transform(image=sample)['image']
+                    if self.use_albumentations:
+                        sample = self.transform(image=np.array(sample))['image']
+                    else:
+                        sample = self.transform(sample)
+
                 return sample, target
             except Exception as e:
                 # traceback.print_exc()
@@ -488,12 +491,13 @@ class FashionAttributeUnlabeledDataset(ImageFolder):
 
 
 class FashionAttributeUnlabeledDatasetOneFolder(data.Dataset):
-    def __init__(self, root, transform=None):
+    def __init__(self, root, transform=None, use_albumentations=False):
         import glob
         self.samples = glob.glob(os.path.join(root, "*"))
         self.transform = transform
         from torchvision.datasets.folder import default_loader
         self.loader = default_loader
+        self.use_albumentations = use_albumentations
 
     def __getitem__(self, index):
         while True:
@@ -501,10 +505,10 @@ class FashionAttributeUnlabeledDatasetOneFolder(data.Dataset):
                 path = self.samples[index]
                 sample = self.loader(path)
                 if self.transform is not None:
-                    sample = self.transform(sample)
-                # albumentations transform style
-                # if self.transform is not None:
-                #     sample = self.transform(image=sample)['image']
+                    if self.use_albumentations:
+                        sample = self.transform(image=np.array(sample))['image']
+                    else:
+                        sample = self.transform(sample)
                 return sample, 1
             except Exception as e:
                 # traceback.print_exc()
