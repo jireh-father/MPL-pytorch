@@ -19,10 +19,13 @@ def reduce_tensor(tensor, n):
 
 
 def create_loss_fn(args):
-    # if args.label_smoothing > 0:
-    #     criterion = SmoothCrossEntropyV2(alpha=args.label_smoothing)
-    # else:  
-    criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
+    if args.label_smoothing > 0:
+        try:
+            criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
+        except:
+            criterion = SmoothCrossEntropyV2(label_smoothing=args.label_smoothing)
+    else:
+        criterion = nn.CrossEntropyLoss()  # label_smoothing=args.label_smoothing)
     return criterion.to(args.device)
 
 
@@ -89,7 +92,7 @@ class SmoothCrossEntropy(nn.Module):
             num_classes = logits.shape[-1]
             alpha_div_k = self.alpha / num_classes
             target_probs = F.one_hot(labels, num_classes=num_classes).float() * \
-                (1. - self.alpha) + alpha_div_k
+                           (1. - self.alpha) + alpha_div_k
             loss = (-(target_probs * torch.log_softmax(logits, dim=-1)).sum(dim=-1)).mean()
         return loss
 
