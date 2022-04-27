@@ -369,7 +369,7 @@ class FashionAttributeDataset(ImageFolder):
                 # albumentations transform style
                 # if self.transform is not None:
                 #     sample = self.transform(image=sample)['image']
-                return sample, target, path
+                return sample, target
             except Exception as e:
                 # traceback.print_exc()
                 print(str(e), path)
@@ -416,7 +416,7 @@ class FashionAttributeMultiLabelDataset(ImageFolder):
                 # albumentations transform style
                 # if self.transform is not None:
                 #     sample = self.transform(image=sample)['image']
-                return sample, np.array(target, dtype=np.float32), path
+                return sample, np.array(target, dtype=np.float32)
             except Exception as e:
                 # traceback.print_exc()
                 print(str(e), path)
