@@ -535,7 +535,8 @@ def main():
     if args.local_rank == 0:
         torch.distributed.barrier()
 
-    logger.info(f"Model: {args.model_name}")
+    logger.info(f"Teacher Model: {args.teacher_model_name}")
+    logger.info(f"Student Model: {args.student_model_name}")
     logger.info(f"Params: {sum(p.numel() for p in teacher_model.parameters()) / 1e6:.2f}M")
 
     teacher_model.to(args.device)
