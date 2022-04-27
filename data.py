@@ -128,71 +128,115 @@ def get_cifar100(args):
     return train_labeled_dataset, train_unlabeled_dataset, test_dataset, finetune_dataset
 
 
-def get_fashion_attribute(args):
-    if args.randaug:
-        n, m = args.randaug
-    else:
-        n, m = 2, 10  # default
-    transform_labeled = transforms.Compose([
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomResizedCrop(size=args.resize),
-        # transforms.RandomCrop(size=args.resize,
-        #                       padding=int(args.resize * 0.125),
-        #                       fill=128,
-        #                       padding_mode='constant'),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=imagenet_mean, std=imagenet_std)])
-    transform_finetune = transforms.Compose([
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomResizedCrop(size=args.resize),
-        # transforms.RandomCrop(size=args.resize,
-        #                       padding=int(args.resize * 0.125),
-        #                       fill=128,
-        #                       padding_mode='constant'),
-        RandAugmentCIFAR(n=n, m=m),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=imagenet_mean, std=imagenet_std)])
-
-    # transform_val = transforms.Compose([
-    #     transforms.ToTensor(),
-    #     transforms.Normalize(mean=imagenet_mean, std=imagenet_std)])
+def get_fashion_transforms(input_size):
     import cv2
     cv2.setNumThreads(0)
     cv2.ocl.setUseOpenCL(False)
     import albumentations as al
     from albumentations.pytorch import ToTensorV2
-    transform_val = al.Compose(
+
+    return al.Compose(
         [
-            al.LongestMaxSize(max_size=round(args.resize * 1.1),
+            al.LongestMaxSize(max_size=round(input_size * 1.1),
                               interpolation=cv2.INTER_AREA),
-            al.augmentations.transforms.PadIfNeeded(min_height=round(args.resize * 1.1),
-                                                    min_width=round(args.resize * 1.1),
+            al.augmentations.transforms.PadIfNeeded(min_height=round(input_size * 1.1),
+                                                    min_width=round(input_size * 1.1),
                                                     border_mode=cv2.BORDER_CONSTANT,
                                                     value=0),
-            al.CenterCrop(height=args.resize, width=args.resize),
+            al.RandomCrop(input_size, input_size),
+            al.HorizontalFlip(p=0.5),
             al.Normalize(),
             ToTensorV2()
         ])
 
+
+def get_fashion_aug_transforms(input_size):
+    import cv2
+    cv2.setNumThreads(0)
+    cv2.ocl.setUseOpenCL(False)
+    import albumentations as al
+    from albumentations.pytorch import ToTensorV2
+
+    return al.Compose(
+        [
+            al.LongestMaxSize(max_size=round(input_size * 1.1),
+                              interpolation=cv2.INTER_AREA),
+            al.augmentations.transforms.PadIfNeeded(min_height=round(input_size * 1.1),
+                                                    min_width=round(input_size * 1.1),
+                                                    border_mode=cv2.BORDER_CONSTANT,
+                                                    value=0),
+            al.RandomCrop(input_size, input_size),
+            al.HorizontalFlip(p=0.5),
+            al.ShiftScaleRotate(shift_limit=0.1,
+                                scale_limit=0.1,
+                                rotate_limit=30,
+                                border_mode=cv2.BORDER_CONSTANT,
+                                value=0,
+                                p=0.5),
+            al.Rotate(limit=(-10, 10), border_mode=cv2.BORDER_CONSTANT, value=0, mask_value=0, p=0.25),
+            al.RandomBrightnessContrast(p=0.25),
+            al.RandomGamma(p=0.25),
+            al.OneOf([
+                al.HueSaturationValue(),
+                al.RGBShift(),
+                al.CLAHE(),
+            ], p=0.25),
+            al.OneOf([
+                al.GaussNoise(),
+                al.ISONoise(),
+                al.MultiplicativeNoise(),
+            ], p=0.25),
+            al.Blur(blur_limit=3, p=0.25),
+            al.Downscale(p=0.2, interpolation=cv2.INTER_LINEAR),
+            al.ImageCompression(quality_lower=80, p=0.2),
+            al.Normalize(),
+            ToTensorV2()
+        ])
+
+
+def get_fashion_test_transforms(size):
+    import cv2
+    cv2.setNumThreads(0)
+    cv2.ocl.setUseOpenCL(False)
+    import albumentations as al
+    from albumentations.pytorch import ToTensorV2
+    return al.Compose(
+        [
+            al.LongestMaxSize(max_size=round(size * 1.1),
+                              interpolation=cv2.INTER_AREA),
+            al.augmentations.transforms.PadIfNeeded(min_height=round(size * 1.1),
+                                                    min_width=round(size * 1.1),
+                                                    border_mode=cv2.BORDER_CONSTANT,
+                                                    value=0),
+            al.CenterCrop(height=size, width=size),
+            al.Normalize(),
+            ToTensorV2()
+        ])
+
+
+def get_fashion_attribute(args):
+    transform_labeled = get_fashion_transforms(args.resize)
+    transform_finetune = get_fashion_aug_transforms(args.resize)
+    transform_val = get_fashion_test_transforms(args.resize)
+
     # dataset_class = FashionAttributeMultiLabelDataset if args.is_multi_label_dataset else FashionAttributeDataset
     dataset_class = FashionAttributeDataset
 
-    train_labeled_dataset = dataset_class(args.train_label_json, args.label_type, args.data_path, transform_labeled)
+    train_labeled_dataset = dataset_class(args.train_label_json, args.label_type, args.data_path, transform_labeled,
+                                          use_albumentations=True)
 
     finetune_dataset = None
     if args.finetune_data_path:
         finetune_dataset = dataset_class(args.finetune_label_json, args.label_type, args.finetune_data_path,
-                                         transform_finetune)
+                                         transform_finetune,
+                                         use_albumentations=True)
 
     if args.use_unlabeled_one_folder:
         train_unlabeled_dataset = FashionAttributeUnlabeledDatasetOneFolder(args.unlabeled_data_path,
-                                                                            TransformMPLFashion(args,
-                                                                                                mean=imagenet_mean,
-                                                                                                std=imagenet_std))
+                                                                            TransformMPLFashion(args))
     else:
         train_unlabeled_dataset = FashionAttributeUnlabeledDataset(args.unlabeled_data_path,
-                                                                   TransformMPLFashion(args, mean=imagenet_mean,
-                                                                                       std=imagenet_std))
+                                                                   TransformMPLFashion(args))
 
     test_dataset = dataset_class(args.test_label_json, args.label_type, args.test_data_path, transform_val,
                                  use_albumentations=True)
@@ -280,35 +324,14 @@ class TransformMPL(object):
 
 
 class TransformMPLFashion(object):
-    def __init__(self, args, mean, std):
-        if args.randaug:
-            n, m = args.randaug
-        else:
-            n, m = 2, 10  # default
-
-        self.ori = transforms.Compose([
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomResizedCrop(size=args.resize)])
-        # transforms.RandomCrop(size=args.resize,
-        #                       padding=int(args.resize * 0.125),
-        #                       fill=128,
-        #                       padding_mode='constant')])
-        self.aug = transforms.Compose([
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomResizedCrop(size=args.resize),
-            # transforms.RandomCrop(size=args.resize,
-            #                       padding=int(args.resize * 0.125),
-            #                       fill=128,
-            #                       padding_mode='constant'),
-            RandAugmentCIFAR(n=n, m=m)])
-        self.normalize = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean=mean, std=std)])
+    def __init__(self, args):
+        self.ori = get_fashion_transforms(args.resize)
+        self.aug = get_fashion_aug_transforms(args.resize)
 
     def __call__(self, x):
         ori = self.ori(x)
         aug = self.aug(x)
-        return self.normalize(ori), self.normalize(aug)
+        return ori, aug
 
 
 class CIFAR10SSL(datasets.CIFAR10):
