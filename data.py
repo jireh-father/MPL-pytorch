@@ -233,11 +233,10 @@ def get_fashion_attribute(args):
 
     if args.use_unlabeled_one_folder:
         train_unlabeled_dataset = FashionAttributeUnlabeledDatasetOneFolder(args.unlabeled_data_path,
-                                                                            TransformMPLFashion(args),
-                                                                            use_albumentations=True)
+                                                                            TransformMPLFashion(args))
     else:
         train_unlabeled_dataset = FashionAttributeUnlabeledDataset(args.unlabeled_data_path,
-                                                                   TransformMPLFashion(args), use_albumentations=True)
+                                                                   TransformMPLFashion(args))
 
     test_dataset = dataset_class(args.test_label_json, args.label_type, args.test_data_path, transform_val,
                                  use_albumentations=True)
@@ -330,8 +329,8 @@ class TransformMPLFashion(object):
         self.aug = get_fashion_aug_transforms(args.resize)
 
     def __call__(self, x):
-        ori = self.ori(x)
-        aug = self.aug(x)
+        ori = self.ori(image=np.array(x))['image']
+        aug = self.aug(image=np.array(x))['image']
         return ori, aug
 
 
