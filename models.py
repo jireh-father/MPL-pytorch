@@ -170,17 +170,21 @@ def get_model(model_name, num_classes, dropout=0, dataset=None, pretrained=False
                            dense_dropout=dropout)
     elif model_name.startswith("efficientnet_"):
         import timm
-        model = timm.create_model(model_name, pretrained=pretrained)
+        model = timm.create_model(model_name, pretrained=pretrained, drop_rate=dropout)
     elif model_name.startswith("efficientnet"):
         from efficientnet_pytorch import EfficientNet
         if pretrained:
-            model = EfficientNet.from_pretrained(model_name, num_classes=num_classes)
+            model = EfficientNet.from_pretrained(model_name, num_classes=num_classes, override_params={
+                'dropout_rate': dropout
+            })
         else:
             try:
-                model = EfficientNet.from_name(model_name, override_params={'num_classes': num_classes})
+                model = EfficientNet.from_name(model_name,
+                                               override_params={'num_classes': num_classes, 'dropout_rate': dropout})
             except:
-                model = EfficientNet.from_name(model_name, num_classes=num_classes)
+                model = EfficientNet.from_name(model_name, num_classes=num_classes,
+                                               override_params={'num_classes': num_classes, 'dropout_rate': dropout})
     else:
         import timm
-        model = timm.create_model(model_name, pretrained=pretrained)
+        model = timm.create_model(model_name, pretrained=pretrained, drop_rate=dropout)
     return model
