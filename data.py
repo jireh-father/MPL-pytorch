@@ -133,18 +133,20 @@ def get_fashion_attribute(args):
         n, m = 2, 10  # default
     transform_labeled = transforms.Compose([
         transforms.RandomHorizontalFlip(),
-        transforms.RandomCrop(size=args.resize,
-                              padding=int(args.resize * 0.125),
-                              fill=128,
-                              padding_mode='constant'),
+        transforms.RandomResizedCrop(size=args.resize),
+        # transforms.RandomCrop(size=args.resize,
+        #                       padding=int(args.resize * 0.125),
+        #                       fill=128,
+        #                       padding_mode='constant'),
         transforms.ToTensor(),
         transforms.Normalize(mean=cifar100_mean, std=cifar100_std)])
     transform_finetune = transforms.Compose([
         transforms.RandomHorizontalFlip(),
-        transforms.RandomCrop(size=args.resize,
-                              padding=int(args.resize * 0.125),
-                              fill=128,
-                              padding_mode='constant'),
+        transforms.RandomResizedCrop(size=args.resize),
+        # transforms.RandomCrop(size=args.resize,
+        #                       padding=int(args.resize * 0.125),
+        #                       fill=128,
+        #                       padding_mode='constant'),
         RandAugmentCIFAR(n=n, m=m),
         transforms.ToTensor(),
         transforms.Normalize(mean=cifar100_mean, std=cifar100_std)])
@@ -165,13 +167,15 @@ def get_fashion_attribute(args):
 
     if args.use_unlabeled_one_folder:
         train_unlabeled_dataset = FashionAttributeUnlabeledDatasetOneFolder(args.unlabeled_data_path,
-                                                                            TransformMPL(args,
-                                                                                         mean=[0.485, 0.456, 0.406],
-                                                                                         std=[0.229, 0.224, 0.225]))
+                                                                            TransformMPLFashion(args,
+                                                                                                mean=[0.485, 0.456,
+                                                                                                      0.406],
+                                                                                                std=[0.229, 0.224,
+                                                                                                     0.225]))
     else:
         train_unlabeled_dataset = FashionAttributeUnlabeledDataset(args.unlabeled_data_path,
-                                                                   TransformMPL(args, mean=[0.485, 0.456, 0.406],
-                                                                                std=[0.229, 0.224, 0.225]))
+                                                                   TransformMPLFashion(args, mean=[0.485, 0.456, 0.406],
+                                                                                       std=[0.229, 0.224, 0.225]))
 
     test_dataset = dataset_class(args.test_label_json, args.label_type, args.test_data_path, transform_val)
 
@@ -246,6 +250,38 @@ class TransformMPL(object):
                                   padding=int(args.resize * 0.125),
                                   fill=128,
                                   padding_mode='constant'),
+            RandAugmentCIFAR(n=n, m=m)])
+        self.normalize = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=mean, std=std)])
+
+    def __call__(self, x):
+        ori = self.ori(x)
+        aug = self.aug(x)
+        return self.normalize(ori), self.normalize(aug)
+
+
+class TransformMPLFashion(object):
+    def __init__(self, args, mean, std):
+        if args.randaug:
+            n, m = args.randaug
+        else:
+            n, m = 2, 10  # default
+
+        self.ori = transforms.Compose([
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomResizedCrop(size=args.resize)])
+        # transforms.RandomCrop(size=args.resize,
+        #                       padding=int(args.resize * 0.125),
+        #                       fill=128,
+        #                       padding_mode='constant')])
+        self.aug = transforms.Compose([
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomResizedCrop(size=args.resize),
+            # transforms.RandomCrop(size=args.resize,
+            #                       padding=int(args.resize * 0.125),
+            #                       fill=128,
+            #                       padding_mode='constant'),
             RandAugmentCIFAR(n=n, m=m)])
         self.normalize = transforms.Compose([
             transforms.ToTensor(),
