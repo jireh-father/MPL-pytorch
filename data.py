@@ -410,7 +410,6 @@ class FashionAttributeUnlabeledDataset(ImageFolder):
 
 class FashionAttributeUnlabeledDatasetOneFolder(data.Dataset):
     def __init__(self, root, transform=None):
-        super(FashionAttributeUnlabeledDatasetOneFolder, self).__init__(root, transform=transform)
         import glob
         self.samples = glob.glob(os.path.join(root, "*"))
         self.transform = transform
