@@ -6,7 +6,7 @@ from PIL import Image
 from torchvision import datasets
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
-
+import torch.utils.data as data
 from augmentation import RandAugmentCIFAR
 from augment import TrivialAugmentWide
 from torchvision.datasets.folder import ImageFolder
@@ -164,9 +164,15 @@ def get_fashion_attribute(args):
         finetune_dataset = dataset_class(args.finetune_label_json, args.label_type, args.finetune_data_path,
                                          transform_finetune)
 
-    train_unlabeled_dataset = FashionAttributeUnlabeledDataset(args.unlabeled_data_path,
-                                                               TransformMPL(args, mean=[0.485, 0.456, 0.406],
-                                                                            std=[0.229, 0.224, 0.225]))
+    if args.use_unlabeled_one_folder:
+        train_unlabeled_dataset = FashionAttributeUnlabeledDatasetOneFolder(args.unlabeled_data_path,
+                                                                            TransformMPL(args,
+                                                                                         mean=[0.485, 0.456, 0.406],
+                                                                                         std=[0.229, 0.224, 0.225]))
+    else:
+        train_unlabeled_dataset = FashionAttributeUnlabeledDataset(args.unlabeled_data_path,
+                                                                   TransformMPL(args, mean=[0.485, 0.456, 0.406],
+                                                                                std=[0.229, 0.224, 0.225]))
 
     test_dataset = dataset_class(args.test_label_json, args.label_type, args.test_data_path, transform_val)
 
@@ -401,6 +407,35 @@ class FashionAttributeUnlabeledDataset(ImageFolder):
                 # traceback.print_exc()
                 print(str(e), path)
                 index = random.randint(0, len(self) - 1)
+
+
+class FashionAttributeUnlabeledDatasetOneFolder(data.Dataset):
+    def __init__(self, root, transform=None):
+        super(FashionAttributeUnlabeledDatasetOneFolder, self).__init__(root, transform=transform)
+        import glob
+        self.samples = glob.glob(os.path.join(root, "*"))
+        self.transform = transform
+        from torchvision.datasets.folder import default_loader
+        self.loader = default_loader
+
+    def __getitem__(self, index):
+        while True:
+            try:
+                path = self.samples[index]
+                sample = self.loader(path)
+                if self.transform is not None:
+                    sample = self.transform(sample)
+                # albumentations transform style
+                # if self.transform is not None:
+                #     sample = self.transform(image=sample)['image']
+                return sample, 1
+            except Exception as e:
+                # traceback.print_exc()
+                print(str(e), path)
+                index = random.randint(0, len(self) - 1)
+
+    def __len__(self) -> int:
+        raise len(self.samples)
 
 
 DATASET_GETTERS = {
