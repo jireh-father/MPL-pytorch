@@ -42,8 +42,7 @@ parser.add_argument('--finetune-label-json', default=None, type=str, help='test 
 parser.add_argument('--test-label-json', default=None, type=str, help='test data path')
 parser.add_argument('--label-type', default=None, type=str, help='test data path')
 parser.add_argument('--save-path', default='./checkpoint', type=str, help='save path')
-parser.add_argument('--dataset', default='cifar10', type=str,
-                    choices=['cifar10', 'cifar100'], help='dataset name')
+parser.add_argument('--dataset', default='cifar10', type=str, help='dataset name')
 parser.add_argument('--num-labeled', type=int, default=4000, help='number of labeled data')
 parser.add_argument("--expand-labels", action="store_true", help="expand labels to fit eval steps")
 parser.add_argument('--total-steps', default=300000, type=int, help='number of total steps to run')
