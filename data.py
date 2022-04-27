@@ -22,6 +22,8 @@ cifar100_mean = (0.507075, 0.486549, 0.440918)
 cifar100_std = (0.267334, 0.256438, 0.276151)
 normal_mean = (0.5, 0.5, 0.5)
 normal_std = (0.5, 0.5, 0.5)
+imagenet_mean = [0.485, 0.456, 0.406]
+imagenet_std = [0.229, 0.224, 0.225]
 
 
 def get_cifar10(args):
@@ -139,7 +141,7 @@ def get_fashion_attribute(args):
         #                       fill=128,
         #                       padding_mode='constant'),
         transforms.ToTensor(),
-        transforms.Normalize(mean=cifar100_mean, std=cifar100_std)])
+        transforms.Normalize(mean=imagenet_mean, std=imagenet_std)])
     transform_finetune = transforms.Compose([
         transforms.RandomHorizontalFlip(),
         transforms.RandomResizedCrop(size=args.resize),
@@ -149,11 +151,28 @@ def get_fashion_attribute(args):
         #                       padding_mode='constant'),
         RandAugmentCIFAR(n=n, m=m),
         transforms.ToTensor(),
-        transforms.Normalize(mean=cifar100_mean, std=cifar100_std)])
+        transforms.Normalize(mean=imagenet_mean, std=imagenet_std)])
 
-    transform_val = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(mean=cifar100_mean, std=cifar100_std)])
+    # transform_val = transforms.Compose([
+    #     transforms.ToTensor(),
+    #     transforms.Normalize(mean=imagenet_mean, std=imagenet_std)])
+    import cv2
+    cv2.setNumThreads(0)
+    cv2.ocl.setUseOpenCL(False)
+    import albumentations as al
+    from albumentations.pytorch import ToTensorV2
+    transform_val = al.Compose(
+        [
+            al.LongestMaxSize(max_size=round(args.resize * 1.1),
+                              interpolation=cv2.INTER_AREA),
+            al.augmentations.transforms.PadIfNeeded(min_height=round(args.resize * 1.1),
+                                                    min_width=round(args.resize * 1.1),
+                                                    border_mode=cv2.BORDER_CONSTANT,
+                                                    value=0),
+            al.CenterCrop(height=args.resize, width=args.resize),
+            al.Normalize(),
+            ToTensorV2()
+        ])
 
     # dataset_class = FashionAttributeMultiLabelDataset if args.is_multi_label_dataset else FashionAttributeDataset
     dataset_class = FashionAttributeDataset
@@ -168,16 +187,15 @@ def get_fashion_attribute(args):
     if args.use_unlabeled_one_folder:
         train_unlabeled_dataset = FashionAttributeUnlabeledDatasetOneFolder(args.unlabeled_data_path,
                                                                             TransformMPLFashion(args,
-                                                                                                mean=[0.485, 0.456,
-                                                                                                      0.406],
-                                                                                                std=[0.229, 0.224,
-                                                                                                     0.225]))
+                                                                                                mean=imagenet_mean,
+                                                                                                std=imagenet_std))
     else:
         train_unlabeled_dataset = FashionAttributeUnlabeledDataset(args.unlabeled_data_path,
-                                                                   TransformMPLFashion(args, mean=[0.485, 0.456, 0.406],
-                                                                                       std=[0.229, 0.224, 0.225]))
+                                                                   TransformMPLFashion(args, mean=imagenet_mean,
+                                                                                       std=imagenet_std))
 
-    test_dataset = dataset_class(args.test_label_json, args.label_type, args.test_data_path, transform_val)
+    test_dataset = dataset_class(args.test_label_json, args.label_type, args.test_data_path, transform_val,
+                                 use_albumentations=True)
 
     return train_labeled_dataset, train_unlabeled_dataset, test_dataset, finetune_dataset
 
@@ -344,7 +362,7 @@ class CIFAR100SSL(datasets.CIFAR100):
 
 
 class FashionAttributeDataset(ImageFolder):
-    def __init__(self, multi_label_json, label_type, root, transform=None):
+    def __init__(self, multi_label_json, label_type, root, transform=None, use_albumentations=False):
         super(FashionAttributeDataset, self).__init__(root, transform=transform)
         multi_label_dict = json.load(open(multi_label_json, encoding='utf-8'))
         label_dict = multi_label_dict[label_type]
@@ -353,6 +371,7 @@ class FashionAttributeDataset(ImageFolder):
         keys.sort()
 
         self.root = root
+        self.use_albumentations = use_albumentations
 
         self.samples = []
         for i, k in enumerate(keys):
@@ -364,11 +383,12 @@ class FashionAttributeDataset(ImageFolder):
                 path, target = self.samples[index]
                 path = os.path.join(self.root, path)
                 sample = self.loader(path)
+
                 if self.transform is not None:
-                    sample = self.transform(sample)
-                # albumentations transform style
-                # if self.transform is not None:
-                #     sample = self.transform(image=sample)['image']
+                    if self.use_albumentations:
+                        sample = self.transform(image=np.array(sample))['image']
+                    else:
+                        sample = self.transform(sample)
                 return sample, target
             except Exception as e:
                 # traceback.print_exc()
