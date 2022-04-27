@@ -182,8 +182,7 @@ def get_model(model_name, num_classes, dropout=0, dataset=None, pretrained=False
                 model = EfficientNet.from_name(model_name,
                                                override_params={'num_classes': num_classes, 'dropout_rate': dropout})
             except:
-                model = EfficientNet.from_name(model_name, num_classes=num_classes,
-                                               override_params={'num_classes': num_classes, 'dropout_rate': dropout})
+                model = EfficientNet.from_name(model_name, num_classes=num_classes, dropout_rate=dropout)
     else:
         import timm
         model = timm.create_model(model_name, pretrained=pretrained, drop_rate=dropout)
