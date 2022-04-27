@@ -30,6 +30,8 @@ parser.add_argument('--name', type=str, required=True, help='experiment name')
 parser.add_argument('--teacher-model-name', type=str, default="WideResNet", help='teacher model name')
 parser.add_argument('--student-model-name', type=str, default="WideResNet", help='student model name')
 parser.add_argument('--use_pretrained_model', action='store_true')
+parser.add_argument('--teacher-pretrained-checkpoint', type=str, default=None)
+parser.add_argument('--student-pretrained-checkpoint', type=str, default=None)
 parser.add_argument('--data-path', default='./data', type=str, help='data path')
 parser.add_argument('--finetune-data-path', default=None, type=str, help='test data path')
 parser.add_argument('--unlabeled-data-path', default=None, type=str, help='test data path')
@@ -607,6 +609,13 @@ def main():
             logger.info(f"=> loaded checkpoint '{args.resume}' (step {checkpoint['step']})")
         else:
             logger.info(f"=> no checkpoint found at '{args.resume}'")
+    elif args.teacher_pretrained_checkpoint or args.student_pretrained_checkpoint:
+        if args.teacher_pretrained_checkpoint:
+            checkpoint_dict = torch.load(args.teacher_pretrained_checkpoint)
+            teacher_model.load_state_dict(checkpoint_dict['state_dict'])
+        if args.student_pretrained_checkpoint:
+            checkpoint_dict = torch.load(args.student_pretrained_checkpoint)
+            student_model.load_state_dict(checkpoint_dict['state_dict'])
 
     if args.local_rank != -1:
         teacher_model = nn.parallel.DistributedDataParallel(
