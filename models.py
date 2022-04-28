@@ -163,6 +163,8 @@ def get_model(model_name, num_classes, dropout=0, dataset=None, pretrained=False
             depth, widen_factor = 28, 2
         elif dataset == 'cifar100':
             depth, widen_factor = 28, 8
+        else:
+            depth, widen_factor = 28, 8
         model = WideResNet(num_classes=num_classes,
                            depth=depth,
                            widen_factor=widen_factor,
