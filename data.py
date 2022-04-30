@@ -215,7 +215,10 @@ def get_fashion_test_transforms(size):
 
 
 def get_fashion_attribute(args):
-    transform_labeled = get_fashion_transforms(args.resize)
+    if args.use_train_aug:
+        transform_labeled = get_fashion_aug_transforms(args.resize)
+    else:
+        transform_labeled = get_fashion_transforms(args.resize)
     transform_finetune = get_fashion_aug_transforms(args.resize)
     transform_val = get_fashion_test_transforms(args.resize)
 
